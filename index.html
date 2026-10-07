@@ -1,6 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
+<script>
+/* B2B website usage log (lhb-b2b.github.io/b2b/ v80+). Only when this site is shown inside the B2B website: the B2B page
+   tells this frame who is signed in (postMessage, accepted only from https://lhb-b2b.github.io) and whether the frame is
+   on screen. Logged: customer side panel opened (customer + seconds open), clicks (cards, filters), searches.
+   Opened on its own (the CEO's direct link) nothing is logged. */
+(function () {
+  var LOG_URL = 'https://script.google.com/macros/s/AKfycbwgoXNmAPbOY8jjj6GcSgrbjwatE0bRsbClVIbdG9_I44dgYVNitZWMm7wgVy-njVjs/exec', MAIN = 'https://lhb-b2b.github.io';
+  if (window.parent === window) return;
+  var ctx = null, q = [], panel = null, lastInput = Date.now();
+  addEventListener('message', function (e) { if (e.origin === MAIN && e.data && e.data.lh === 'ctx') ctx = e.data; });
+  var on = function () { return !!(ctx && ctx.user && ctx.user.e && ctx.visible && !document.hidden); };
+  function push(o) { o.t = o.t || Date.now(); o.page = 'CEO Referrals'; q.push(o); if (q.length >= 40) flush(); }
+  function flush(final) {
+    if (!ctx || !ctx.user || !q.length) return;
+    var body = JSON.stringify({ v: 2, e: ctx.user.e, n: ctx.user.n || '', r: ctx.user.r || '', s: ctx.sid || '', ev: q.splice(0, q.length) });
+    try {
+      if (final && navigator.sendBeacon && navigator.sendBeacon(LOG_URL, new Blob([body], { type: 'text/plain' }))) return;
+      fetch(LOG_URL, { method: 'POST', mode: 'no-cors', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: body });
+    } catch (e) {}
+  }
+  var clean = function (s) { return String(s || '').replace(/\s+/g, ' ').trim().slice(0, 100); };
+  function openCustomer() {
+    var a = document.querySelector('aside'); if (!a) return null;
+    var r = a.getBoundingClientRect(); if (r.width < 10 || r.left > innerWidth - 20) return null;
+    var h = a.querySelector('h2, h1, h3'); return h ? clean(h.textContent) || 'Customer' : 'Customer';
+  }
+  setInterval(function () {
+    var nm = on() ? openCustomer() : null;
+    if (panel && panel.name !== nm) { if (panel.sec >= 1) push({ k: 'detail', label: panel.name, sec: panel.sec, t: panel.t }); panel = null; }
+    if (nm && !panel) panel = { name: nm, t: Date.now(), sec: 0 };
+    if (panel && Date.now() - lastInput < 120000) panel.sec++;
+  }, 1000);
+  ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove', 'scroll'].forEach(function (n) { addEventListener(n, function () { lastInput = Date.now(); }, { passive: true, capture: true }); });
+  document.addEventListener('click', function (e) {
+    if (!on()) return;
+    var el = e.target.closest && e.target.closest('button, a, [role="button"], article, li');
+    for (var n = e.target, i = 0; !el && n && n.nodeType === 1 && i < 6; n = n.parentElement, i++) if (getComputedStyle(n).cursor === 'pointer') el = n;
+    if (!el) return;
+    var h = el.querySelector && el.querySelector('h2, h3');
+    var lb = h ? 'Customer card: ' + clean(h.textContent) : clean(el.getAttribute('aria-label') || el.getAttribute('title') || (el.innerText || '').split('\n')[0]);
+    if (lb) push({ k: 'click', label: lb });
+  }, true);
+  var st = null, lastQ = '';
+  document.addEventListener('input', function (e) {
+    var el = e.target; if (!el || el.tagName !== 'INPUT') return;
+    clearTimeout(st);
+    st = setTimeout(function () { var v = clean(el.value); if (on() && v.length >= 2 && v !== lastQ) { lastQ = v; push({ k: 'search', label: 'Search customers', q: v.slice(0, 80) }); } }, 1500);
+  }, true);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) flush(true); });
+  addEventListener('pagehide', function () { flush(true); });
+  setInterval(flush, 30000);
+})();
+</script>
+
   <meta charset="utf-8">
   <link rel="preconnect" href="https://docs.google.com">
   <script>window.__ceoRows = new Promise(function (ok, no) { window.__ceoCb = function (r) { if (r && r.status === "ok") ok(r.table.rows.map(function (x) { return (x.c || []).map(function (c) { return c && c.v != null ? String(c.v).trim() : ""; }); })); else no(new Error("Sheet error")); }; var t = document.createElement("script"); t.src = "https://docs.google.com/spreadsheets/d/1PINkueSo4_Sjq9gQy724yOR0Pc2Qc2N1f-iasba-ToM/gviz/tq?gid=497306179&headers=0&tqx=out:json;responseHandler:__ceoCb"; t.onerror = function () { no(new Error("Sheet download failed")); }; document.head.appendChild(t); setTimeout(function () { no(new Error("Sheet did not answer")); }, 15000); }); window.__ceoRows.catch(function () {});</script>
